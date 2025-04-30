@@ -9,7 +9,6 @@ This is for learning processors.
 
 - RV64I ISA of  [*The RISC-V Instruction Set Manual Volume I: Unprivileged ISA*](https://drive.google.com/file/d/1uviu1nH-tScFfgrovvFCrj7Omv8tFtkp/view?usp=drive_link) 
 - 5-stage pipeline
-- Single core
 
 
 
