@@ -130,6 +130,18 @@ module alu import pkg_instructions::*;(
                              ({{(XLEN-32){1'b0}}, ($signed(src1_val[31:0]) >>> src2_val[4:0])}) :
                               ($signed(src1_val) >>> src2_val[SHAMT_WIDTH-1:0]);
             end
+            ALU_CSR_RW : begin
+                // CSR read/write
+                dest_val = src2_val;        // src2_val is regx[rs1] or uimm
+            end
+            ALU_CSR_RS: begin
+                // CSR read and set
+                dest_val = src1_val | src2_val;
+            end
+            ALU_CSR_RC: begin
+                // CSR read and clear
+                dest_val = src1_val & ~src2_val;        // src1_val is CSR, src2_val is reg_x[rs1] or uimm 
+            end
             default: begin
                 dest_val = '0;
             end

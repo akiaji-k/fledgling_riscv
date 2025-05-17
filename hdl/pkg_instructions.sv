@@ -512,7 +512,9 @@ package pkg_instructions;
         OPE_RS1_IMM,
         OPE_RS1_RS2,
         OPE_RS1_RS2_RS3,
-        OPE_RS1_RS2_IMM
+        OPE_RS1_RS2_IMM,
+        OPE_CSR_RS1,
+        OPE_CSR_UIMM
     } ope_sel_e;
 
     /* ALU type */
@@ -535,7 +537,10 @@ package pkg_instructions;
         ALU_XOR,
         ALU_SLL,
         ALU_SRL,
-        ALU_SRA
+        ALU_SRA,
+        ALU_CSR_RW,
+        ALU_CSR_RS,
+        ALU_CSR_RC
     } alu_e;
 
     /* Data size */

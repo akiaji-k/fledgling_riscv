@@ -15,18 +15,17 @@
 
 `default_nettype none 
 
-interface reg_file_if (
-    input logic clk,
-    input logic rst 
-);
+interface reg_file_if import pkg_parameters::REG_ADDR_WIDTH; #(
+        parameter ADDR_WIDTH = REG_ADDR_WIDTH
+    )(
+        input logic clk,
+        input logic rst 
+    );
 
     import pkg_parameters::XLEN;
-    import pkg_parameters::REG_ADDR_WIDTH;
 
-    logic [REG_ADDR_WIDTH-1:0] addr;
+    logic [ADDR_WIDTH-1:0] addr;
     logic web;
-//    logic [XLEN-1:0] din;
-//    logic [XLEN-1:0] dout;
     logic [XLEN-1:0] data;
     
     // source register (rs)

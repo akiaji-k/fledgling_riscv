@@ -13,6 +13,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 `include "pkg_parameters.sv"
 `include "pkg_instructions.sv"
+`include "pkg_csr.sv"
 
 `default_nettype none 
 
@@ -28,6 +29,7 @@ module cpu (
     import pkg_parameters::IMEM_ADDR_WIDTH, pkg_parameters::IMEM_DATA_WIDTH;
     import pkg_parameters::DMEM_ADDR_WIDTH, pkg_parameters::DMEM_DATA_WIDTH;
     import pkg_instructions::*;
+    import pkg_csr::NUM_CSR_REG, pkg_csr::CSR_REG_ADDR_WIDTH;
 
     /* Memories */
     // Instruction memory
@@ -83,6 +85,30 @@ module cpu (
         .rs3_if,
         .rd_if
     );
+    
+
+    // ============================
+    //  CSRs
+    // ============================
+    reg_file_if #(
+        .ADDR_WIDTH(CSR_REG_ADDR_WIDTH)
+    ) csr_read_if (
+        .clk(clk_i),
+        .rst(rst_i)
+    );
+
+    reg_file_if #(
+        .ADDR_WIDTH(CSR_REG_ADDR_WIDTH)
+    ) csr_write_if (
+        .clk(clk_i),
+        .rst(rst_i)
+    );
+
+    csr_regs csr_regs (
+        .csr_read(csr_read_if),
+        .csr_write(csr_write_if)
+    );
+    
 
 
     // ============================
@@ -171,6 +197,8 @@ module cpu (
     logic is_store;
     logic is_op32;
     logic is_branch;
+    logic is_csr;
+    logic [XLEN-1:0] csr_val;
     /* verilator lint_off UNDRIVEN */
     typedef enum logic[1:0] {
         NONE,
@@ -187,10 +215,12 @@ module cpu (
     logic [XLEN-1:0] id2exe_ope_3 = '0;
     logic [XLEN-1:0] id2exe_rs2_val;
     logic [REG_ADDR_WIDTH-1:0] id2exe_wb_addr;
+    logic [CSR_REG_ADDR_WIDTH-1:0] id2exe_csr_addr;
     logic id2exe_is_load;
     logic id2exe_is_store;
     logic id2exe_is_op32;
     logic id2exe_is_branch;
+    logic id2exe_is_csr;
     alu_e  id2exe_alu_type;
     data_size_e id2exe_data_size;
 
@@ -211,6 +241,9 @@ module cpu (
     assign rs1_if.addr = rs1_addr;
     assign rs2_if.addr = rs2_addr;
     assign rs3_if.addr = rs3_addr;
+
+    assign csr_read_if.addr = imm[CSR_REG_ADDR_WIDTH-1:0];
+    assign csr_val = csr_read_if.data;
 
     always_comb begin : RS1
         if ((rs1_addr == id2exe_wb_addr) && (id2exe_is_load == '0)) begin : FORWADING_FROM_EX
@@ -314,6 +347,16 @@ module cpu (
                 ope_2 = rs2_val;
                 ope_3 = imm;    // for BRANCH and JAL instructions 
             end
+            OPE_CSR_RS1: begin
+                ope_1 = csr_val;
+                ope_2 = rs1_val;
+                ope_3 = '0;
+            end
+            OPE_CSR_UIMM: begin
+                ope_1 = csr_val;
+                ope_2 = XLEN'($unsigned(rs1_addr)); // zero-extended
+                ope_3 = '0;
+            end
             default: begin
                 ope_1 = '0;
                 ope_2 = '0;
@@ -356,6 +399,7 @@ module cpu (
         end
     end
 
+    assign is_csr = (alu_type inside {ALU_CSR_RW, ALU_CSR_RS, ALU_CSR_RC}) ? '1 : '0;
 
     // pipeline
     always_ff @ (posedge clk_i, posedge rst_i) begin
@@ -373,6 +417,8 @@ module cpu (
             id2exe_is_store <= '0;
             id2exe_is_op32 <= '0;
             id2exe_is_branch <= '0;
+            id2exe_is_csr <= '0;
+            id2exe_csr_addr <= '0;
             id2exe_rs2_val <= '0;
         end
         else if (branch_flag == 'b1) begin : ID2EXE_BRANCH_HAZARD 
@@ -387,6 +433,8 @@ module cpu (
             id2exe_is_store <= '0;
             id2exe_is_op32 <= '0;
             id2exe_is_branch <= '0;
+            id2exe_is_csr <= '0;
+            id2exe_csr_addr <= '0;
             id2exe_rs2_val <= '0;
         end
         else if (data_hazard_stall != '0) begin : DATA_HAZARD
@@ -401,6 +449,8 @@ module cpu (
             id2exe_is_store <= '0;
             id2exe_is_op32 <= '0;
             id2exe_is_branch <= '0;
+            id2exe_is_csr <= '0;
+            id2exe_csr_addr <= '0;
             id2exe_rs2_val <= '0;
         end
         else begin  : USUAL
@@ -414,6 +464,8 @@ module cpu (
             id2exe_is_store <= is_store;
             id2exe_is_op32 <= is_op32;
             id2exe_is_branch <= is_branch;
+            id2exe_is_csr <= is_csr;
+            id2exe_csr_addr <= imm[CSR_REG_ADDR_WIDTH-1:0];
             id2exe_rs2_val <= rs2_val;
         end
     end
@@ -428,6 +480,9 @@ module cpu (
     logic [REG_ADDR_WIDTH-1:0] exe2mem_wb_addr = '0;
     logic exe2mem_is_load;
     logic exe2mem_is_store;
+    logic exe2mem_is_csr;
+    logic [CSR_REG_ADDR_WIDTH-1:0] exe2mem_csr_addr;
+    logic [XLEN-1:0] exe2mem_csr_val;
     data_size_e exe2mem_data_size;
     logic [XLEN-1:0] exe2mem_res_val;
 
@@ -456,6 +511,9 @@ module cpu (
             exe2mem_is_load <= '0;
             exe2mem_is_store <= '0;
             exe2mem_rs2_val <= '0;
+            exe2mem_is_csr <= '0;
+            exe2mem_csr_addr <= '0;
+            exe2mem_csr_val <= '0;
         end
         else begin
             exe2mem_res_val <= res_val;
@@ -463,6 +521,9 @@ module cpu (
             exe2mem_is_load <= id2exe_is_load;
             exe2mem_is_store <= id2exe_is_store;
             exe2mem_rs2_val <= id2exe_rs2_val;
+            exe2mem_is_csr <= id2exe_is_csr;
+            exe2mem_csr_addr <= id2exe_csr_addr;
+            exe2mem_csr_val <= id2exe_ope_1;
         end
 
         exe2mem_data_size <= id2exe_data_size; 
@@ -477,6 +538,9 @@ module cpu (
     logic [REG_ADDR_WIDTH-1:0] mem2wb_wb_addr = '0;
     logic mem2wb_is_store;
     logic [DMEM_DATA_WIDTH-1:0] mem2wb_mem_out = '0;
+    logic mem2wb_is_csr;
+    logic [CSR_REG_ADDR_WIDTH-1:0] mem2wb_csr_addr;
+    logic [XLEN-1:0] mem2wb_csr_val;
 
     /* Data memory */
     assign dmem_ena = !rst_i;
@@ -545,11 +609,17 @@ module cpu (
             mem2wb_mem_out <= '0;
             mem2wb_wb_addr <= '0;
             mem2wb_is_store <= '0;
+            mem2wb_is_csr <= '0;
+            mem2wb_csr_addr <= '0;
+            mem2wb_csr_val <= '0;
         end
         else begin
             mem2wb_mem_out <= mem_out;
             mem2wb_wb_addr <= exe2mem_wb_addr;
             mem2wb_is_store <= exe2mem_is_store;
+            mem2wb_is_csr <= exe2mem_is_csr;
+            mem2wb_csr_addr <= exe2mem_csr_addr;
+            mem2wb_csr_val <= exe2mem_csr_val;
         end
     end
 
@@ -570,7 +640,12 @@ module cpu (
     end
 
     assign rd_if.addr = mem2wb_wb_addr;
-    assign rd_if.data = mem2wb_mem_out;
+//    assign rd_if.data = mem2wb_mem_out;
+    assign rd_if.data = (mem2wb_is_csr) ? mem2wb_csr_val : mem2wb_mem_out;
+
+    assign csr_write_if.web = mem2wb_is_csr;
+    assign csr_write_if.addr = mem2wb_csr_addr;
+    assign csr_write_if.data = mem2wb_mem_out;      // mem_out (ALU output) is used for CSR write
 
 
 

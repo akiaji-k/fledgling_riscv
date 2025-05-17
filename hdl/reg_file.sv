@@ -15,7 +15,9 @@
 
 `default_nettype none 
 
-module reg_file (
+module reg_file import pkg_parameters::NUM_REG; #(
+        parameter NUM_OF_REG = NUM_REG
+    )(
         reg_file_if.rs_port_rf rs1_if,
         reg_file_if.rs_port_rf rs2_if,
         reg_file_if.rs_port_rf rs3_if,
@@ -23,9 +25,8 @@ module reg_file (
     );
 
     import pkg_parameters::XLEN;
-    import pkg_parameters::NUM_REG;
 
-    logic [NUM_REG-1:1][XLEN-1:0] reg_x = '0;   // NUM_REG can be 31 (not 32) because the value of xreg[0] is always 0 (zero-register)
+    logic [NUM_OF_REG-1:1][XLEN-1:0] reg_x = '0;   // NUM_REG can be 31 (not 32) because the value of xreg[0] is always 0 (zero-register)
 
     assign rs1_if.data = (rs1_if.addr == '0) ? '0 : reg_x[rs1_if.addr];
     assign rs2_if.data = (rs2_if.addr == '0) ? '0 : reg_x[rs2_if.addr];

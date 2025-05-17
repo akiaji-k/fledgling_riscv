@@ -530,26 +530,38 @@ module decoder import pkg_instructions::*;(
             CSRRW_VALUE: begin
                 inst_type = I_TYPE;
                 inst = CSRRW;
+                alu_type = ALU_CSR_RW;
+                ope_sel = OPE_CSR_RS1;
             end
             CSRRS_VALUE: begin
                 inst_type = I_TYPE;
                 inst = CSRRS;
+                alu_type = ALU_CSR_RS;
+                ope_sel = OPE_CSR_RS1;
             end
             CSRRC_VALUE: begin
                 inst_type = I_TYPE;
                 inst = CSRRC;
+                alu_type = ALU_CSR_RC;
+                ope_sel = OPE_CSR_RS1;
             end
             CSRRWI_VALUE: begin
                 inst_type = I_TYPE;
                 inst = CSRRWI;
+                alu_type = ALU_CSR_RW;
+                ope_sel = OPE_CSR_UIMM;
             end
             CSRRSI_VALUE: begin
                 inst_type = I_TYPE;
                 inst = CSRRSI;
+                alu_type = ALU_CSR_RS;
+                ope_sel = OPE_CSR_UIMM;
             end
             CSRRCI_VALUE: begin
                 inst_type = I_TYPE;
                 inst = CSRRCI;
+                alu_type = ALU_CSR_RC;
+                ope_sel = OPE_CSR_UIMM;
             end
 
             /* RV32M Standard Extension (pp. 65-67, 556) */
