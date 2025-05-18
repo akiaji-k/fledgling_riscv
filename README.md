@@ -20,6 +20,5 @@ This is for learning processors.
   - PAUSE
   - ECALL
   - EBREAK
-- Implement Zicsr extension (for instructions above)
 - Pass [riscv-tests](https://github.com/riscv-software-src/riscv-tests)
 
