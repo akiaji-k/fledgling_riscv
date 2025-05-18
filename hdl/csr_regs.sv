@@ -26,7 +26,8 @@ module csr_regs (
     import pkg_csr::*;
 
     /* CSR register array */
-    logic [CSR_REG_ADDR_WIDTH-1:0][XLEN-1:0] csr = '0;   
+    logic [NUM_CSR_REG-1:0][XLEN-1:0] csr = '{default : '0};   
+    logic [63:0] mcycle = '0; // cycle counter has to be 64-bit even if XLEN is 32-bit
 
     initial begin
 //        csr[MISA] = {2'b10, {(XLEN-28){1'b0}}, 26'b00_0000_0000_0000_0000_0001_0000_0000}; // only RV64I is supported
@@ -37,12 +38,22 @@ module csr_regs (
         csr[MARCHID] = 'd100;   // non-commercial open-source
         csr[MIMPID] = "AK";      
         csr[MHARTID] = '0;    // only one hart is supported
-
+        csr[MCONFIGPTR] = '0; // the configration data structure does not exist (riscv-privileged.pdf, 3.1.17) (it's read-only)
     end
 
 
     /* R/W interfaces */
-    assign csr_read.data = csr[csr_read.addr];
+//    assign csr_read.data = csr[csr_read.addr];
+    always_comb begin : CSR_READ 
+        unique case(csr_read.addr)
+            MCYCLE: begin : XLEN64
+                csr_read.data = mcycle;
+            end
+            default: begin
+                csr_read.data = csr[csr_read.addr];
+            end
+        endcase
+    end
 
     always_ff @ (posedge csr_write.clk, posedge csr_write.rst) begin
         if (csr_write.rst) begin
@@ -52,6 +63,9 @@ module csr_regs (
             csr[csr_write.addr] <= csr[csr_write.addr];
         end
         // web == 1
+        else if (csr_write.addr inside {MCONFIGPTR}) begin : READ_ONLY
+            csr[csr_write.addr] <= csr[csr_write.addr];
+        end
         else if (csr_write.addr inside {MISA, MVENDORID, MARCHID, MIMPID, MHARTID} ) begin : WARL
             csr[csr_write.addr] <= csr[csr_write.addr];
         end
@@ -60,6 +74,18 @@ module csr_regs (
         end
     end
 
+    /* clock-cycle counter */
+    always_ff @ (posedge csr_write.clk, posedge csr_write.rst) begin
+        if (csr_write.rst) begin
+            mcycle <= '0;
+        end
+        else if ((csr_write.addr == MCYCLE) && (csr_write.web == 1'b1)) begin
+            mcycle <= csr_write.data;
+        end
+        else begin
+            mcycle <= mcycle + 'd1;
+        end
+    end
 
 endmodule
 

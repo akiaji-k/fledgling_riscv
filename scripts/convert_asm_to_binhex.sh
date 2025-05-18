@@ -21,7 +21,8 @@ xxd_hex_file="${asm_file%.s}_0x.mem"
 
 # avoid to use compressed instructions
 #riscv64-unknown-linux-gnu-gcc -c $1
-riscv64-unknown-linux-gnu-gcc -march=rv64i -mabi=lp64 -c $1
+#riscv64-unknown-linux-gnu-gcc -march=rv64i -mabi=lp64 -c $1
+riscv64-unknown-linux-gnu-gcc -march=rv64i_zicsr -mabi=lp64 -c $1
 
 # show
 riscv64-unknown-linux-gnu-objdump -d $object_file -M no-aliases

@@ -78,6 +78,11 @@ module imem #(
         else if (PRESET == 'd10) begin
             $readmemh("../test/int_reg_reg/int_reg_reg_0x.mem", mem);
         end
+        else if (PRESET == 'd11) begin
+            $readmemh("../test/csr/csr_0x.mem", mem);
+        end
+        else begin
+        end
     end
 
 endmodule

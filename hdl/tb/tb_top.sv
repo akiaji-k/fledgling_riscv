@@ -67,6 +67,7 @@ module tb_top;
                 "@%0t\n", $realtime,
                 "pc = %0d, next_pc = %0d\n", top.cpu.pc, top.cpu.next_pc,
                 "imem2if_pc = %0d, if2id_pc = %0d, id2exe_pc = %0d\n", top.cpu.imem2if_pc, top.cpu.if2id_pc, top.cpu.id2exe_pc,
+                "mcycle = %0x\n", top.cpu.csr_regs.mcycle,
                 "IF: Instruction Fetch\n", 
                 "\timem_rdata: 0x%x\n", top.cpu.imem_rdata,
                 "\timem_rdata: 0x%b\n", top.cpu.imem_rdata,

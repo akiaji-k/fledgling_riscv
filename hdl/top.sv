@@ -51,7 +51,8 @@ module top (
 //        .PRESET(7)      // jump 
 //        .PRESET(8)      // load immediate 
 //        .PRESET(9)        // integer register-immediate 
-        .PRESET(10)        // integer register-register
+//        .PRESET(10)        // integer register-register
+        .PRESET(11)        // csr
     ) imem (
         .mif(imem_if)
     );
