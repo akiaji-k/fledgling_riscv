@@ -400,14 +400,20 @@ module decoder import pkg_instructions::*;(
             FENCE_VALUE: begin
                 inst_type = I_TYPE;
                 inst = FENCE;
+                alu_type = ALU_NOP;
+                ope_sel = OPE_NOP;
             end
             FENCE_TSO_VALUE: begin
                 inst_type = I_TYPE;
                 inst = FENCE_TSO;
+                alu_type = ALU_NOP;
+                ope_sel = OPE_NOP;
             end
             PAUSE_VALUE: begin
                 inst_type = I_TYPE;
                 inst = PAUSE;
+                alu_type = ALU_NOP;
+                ope_sel = OPE_NOP;
             end
             // Environment Call and Breakpoints
             ECALL_VALUE: begin
