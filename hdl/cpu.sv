@@ -29,7 +29,7 @@ module cpu (
     import pkg_parameters::IMEM_ADDR_WIDTH, pkg_parameters::IMEM_DATA_WIDTH;
     import pkg_parameters::DMEM_ADDR_WIDTH, pkg_parameters::DMEM_DATA_WIDTH;
     import pkg_instructions::*;
-    import pkg_csr::NUM_CSR_REG, pkg_csr::CSR_REG_ADDR_WIDTH;
+    import pkg_csr::*;
 
     /* Memories */
     // Instruction memory
@@ -90,6 +90,12 @@ module cpu (
     // ============================
     //  CSRs
     // ============================
+    logic exception_event;
+    exception_code_e exception_cause;
+    logic [XLEN-1:0] exception_pc;
+    logic [XLEN-1:0] exception_tval;
+    logic [1:0] exception_priv_mode;
+
     reg_file_if #(
         .ADDR_WIDTH(CSR_REG_ADDR_WIDTH)
     ) csr_read_if (
@@ -106,7 +112,13 @@ module cpu (
 
     csr_regs csr_regs (
         .csr_read(csr_read_if),
-        .csr_write(csr_write_if)
+        .csr_write(csr_write_if),
+
+        .exeception_event_i(exception_event), 
+        .exeception_cause_i(exception_cause), 
+        .exeception_pc_i(exception_pc), 
+        .exeception_tval_i(exception_tval), 
+        .exception_priv_mode_i(exception_priv_mode) 
     );
     
 
@@ -130,6 +142,9 @@ module cpu (
         // Jump and branch instructions have higher priority than data hazard stalls.
         if (branch_flag == 'b1) begin
             next_pc = pc_branch;    // it's one of the outputs from ALU 
+        end
+        else if (is_ecall) begin
+            next_pc = csr_val; // MTVEC register value is used for ecall
         end
         else if (data_hazard_stall != '0) begin
             next_pc = pc;
@@ -163,12 +178,18 @@ module cpu (
         if (rst_i) begin
             if2id_imem_rdata <= '0;
         end
-        else if (branch_flag == 'b1) begin : IF2ID_BRANCH_HAZARD
+        else if ((is_ecall | id2exe_is_ecall) == 'b1
+                || (branch_flag == 'b1)
+                || (branch_flag_d == 'b1)
+        ) begin : IF2ID_HAZARD
             if2id_imem_rdata <= NOP_VALUE;
         end
-        else if (branch_flag_d == 'b1) begin : IF2ID_BRANCH_HAZARD_DELAYED
-            if2id_imem_rdata <= NOP_VALUE;
-        end
+//        else if (branch_flag == 'b1) begin : IF2ID_BRANCH_HAZARD
+//            if2id_imem_rdata <= NOP_VALUE;
+//        end
+//        else if (branch_flag_d == 'b1) begin : IF2ID_BRANCH_HAZARD_DELAYED
+//            if2id_imem_rdata <= NOP_VALUE;
+//        end
         else if ((data_hazard_stall == '0) && (data_hazard_stall_d == 1'b1)) begin : NEGEDGE_OF_DATA_HAZARD_STALL
             if2id_imem_rdata <= if2id_imem_rdata_stall;
         end
@@ -198,6 +219,7 @@ module cpu (
     logic is_op32;
     logic is_branch;
     logic is_csr;
+    logic is_ecall;
     logic [XLEN-1:0] csr_val;
     /* verilator lint_off UNDRIVEN */
     typedef enum logic[1:0] {
@@ -221,6 +243,7 @@ module cpu (
     logic id2exe_is_op32;
     logic id2exe_is_branch;
     logic id2exe_is_csr;
+    logic id2exe_is_ecall;
     alu_e  id2exe_alu_type;
     data_size_e id2exe_data_size;
 
@@ -242,7 +265,7 @@ module cpu (
     assign rs2_if.addr = rs2_addr;
     assign rs3_if.addr = rs3_addr;
 
-    assign csr_read_if.addr = imm[CSR_REG_ADDR_WIDTH-1:0];
+    assign csr_read_if.addr = (is_ecall) ? MTVEC : imm[CSR_REG_ADDR_WIDTH-1:0];
     assign csr_val = csr_read_if.data;
 
     always_comb begin : RS1
@@ -400,6 +423,39 @@ module cpu (
     end
 
     assign is_csr = (alu_type inside {ALU_CSR_RW, ALU_CSR_RS, ALU_CSR_RC}) ? '1 : '0;
+    assign is_ecall = (alu_type == ALU_ECALL) ? '1 : '0;
+
+    // ECALL instruction
+    always_ff @ (posedge clk_i, posedge rst_i) begin
+        if (rst_i) begin
+            exception_event <= '0;
+            exception_cause <= RESERVED_EXCEPTION;
+            exception_pc <= '0;
+            exception_tval <= '0;
+            exception_priv_mode <= '0;
+        end
+        else if (id2exe_is_ecall) begin : HOLDING_VALUES_FOR_ECALL
+            exception_event <= exception_event;
+            exception_cause <= exception_cause;
+            exception_pc <= exception_pc;
+            exception_tval <= exception_tval;
+            exception_priv_mode <= exception_priv_mode;
+        end
+        else if (is_ecall) begin
+            exception_event <= '1;
+            exception_cause <= MACHINE_EXTERNAL_INTERRUPT;        // other causes are not implemented yet
+            exception_pc <= if2id_pc;       // PC of the instruction that caused the exception
+            exception_tval <= '0; // no tval for ECALL
+            exception_priv_mode <= '0; // privilege mode is not implemented yet
+        end
+        else begin
+            exception_event <= '0;
+            exception_cause <= RESERVED_EXCEPTION;
+            exception_pc <= '0;
+            exception_tval <= '0;
+            exception_priv_mode <= '0;
+        end
+    end
 
     // pipeline
     always_ff @ (posedge clk_i, posedge rst_i) begin
@@ -421,7 +477,10 @@ module cpu (
             id2exe_csr_addr <= '0;
             id2exe_rs2_val <= '0;
         end
-        else if (branch_flag == 'b1) begin : ID2EXE_BRANCH_HAZARD 
+        else if ((branch_flag == 'b1) 
+                || (data_hazard_stall != '0)
+                || ((is_ecall | id2exe_is_ecall) == 'b1)
+                ) begin : ID2EXE_HAZARD
             id2exe_ope_1 <= '0;
             id2exe_ope_2 <= '0;
             id2exe_ope_3 <= '0;
@@ -437,22 +496,38 @@ module cpu (
             id2exe_csr_addr <= '0;
             id2exe_rs2_val <= '0;
         end
-        else if (data_hazard_stall != '0) begin : DATA_HAZARD
-            id2exe_ope_1 <= '0;
-            id2exe_ope_2 <= '0;
-            id2exe_ope_3 <= '0;
-            id2exe_alu_type <= ALU_NOP;
-//            id2exe_ope_sel <= id2exe_ope_sel;
-            id2exe_data_size <= id2exe_data_size;
-            id2exe_wb_addr <= '0;
-            id2exe_is_load <= '0;
-            id2exe_is_store <= '0;
-            id2exe_is_op32 <= '0;
-            id2exe_is_branch <= '0;
-            id2exe_is_csr <= '0;
-            id2exe_csr_addr <= '0;
-            id2exe_rs2_val <= '0;
-        end
+//        else if (branch_flag == 'b1) begin : ID2EXE_BRANCH_HAZARD 
+//            id2exe_ope_1 <= '0;
+//            id2exe_ope_2 <= '0;
+//            id2exe_ope_3 <= '0;
+//            id2exe_alu_type <= ALU_NOP;
+////            id2exe_ope_sel <= id2exe_ope_sel;
+//            id2exe_data_size <= id2exe_data_size;
+//            id2exe_wb_addr <= '0;
+//            id2exe_is_load <= '0;
+//            id2exe_is_store <= '0;
+//            id2exe_is_op32 <= '0;
+//            id2exe_is_branch <= '0;
+//            id2exe_is_csr <= '0;
+//            id2exe_csr_addr <= '0;
+//            id2exe_rs2_val <= '0;
+//        end
+//        else if (data_hazard_stall != '0) begin : DATA_HAZARD
+//            id2exe_ope_1 <= '0;
+//            id2exe_ope_2 <= '0;
+//            id2exe_ope_3 <= '0;
+//            id2exe_alu_type <= ALU_NOP;
+////            id2exe_ope_sel <= id2exe_ope_sel;
+//            id2exe_data_size <= id2exe_data_size;
+//            id2exe_wb_addr <= '0;
+//            id2exe_is_load <= '0;
+//            id2exe_is_store <= '0;
+//            id2exe_is_op32 <= '0;
+//            id2exe_is_branch <= '0;
+//            id2exe_is_csr <= '0;
+//            id2exe_csr_addr <= '0;
+//            id2exe_rs2_val <= '0;
+//        end
         else begin  : USUAL
             id2exe_ope_1 <= ope_1;
             id2exe_ope_2 <= ope_2;
@@ -467,6 +542,15 @@ module cpu (
             id2exe_is_csr <= is_csr;
             id2exe_csr_addr <= imm[CSR_REG_ADDR_WIDTH-1:0];
             id2exe_rs2_val <= rs2_val;
+        end
+    end
+
+    always_ff @ (posedge clk_i, posedge rst_i) begin
+        if (rst_i) begin
+            id2exe_is_ecall <= '0;
+        end
+        else begin
+            id2exe_is_ecall <= is_ecall;
         end
     end
 

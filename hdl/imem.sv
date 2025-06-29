@@ -81,6 +81,9 @@ module imem #(
         else if (PRESET == 'd11) begin
             $readmemh("../test/csr/csr_0x.mem", mem);
         end
+        else if (PRESET == 'd12) begin
+            $readmemh("../test/ecall/ecall_0x.mem", mem);
+        end
         else begin
         end
     end

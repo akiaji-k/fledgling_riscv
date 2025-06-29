@@ -540,7 +540,8 @@ package pkg_instructions;
         ALU_SRA,
         ALU_CSR_RW,
         ALU_CSR_RS,
-        ALU_CSR_RC
+        ALU_CSR_RC,
+        ALU_ECALL
     } alu_e;
 
     /* Data size */

@@ -14,6 +14,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 package pkg_csr;
+    import pkg_parameters::XLEN;
+
     localparam int NUM_CSR_REG = 4096;
     localparam int CSR_REG_ADDR_WIDTH = $clog2(NUM_CSR_REG);
 
@@ -25,20 +27,20 @@ package pkg_csr;
     localparam MHARTID   = CSR_REG_ADDR_WIDTH'('hF14);
     localparam MCONFIGPTR = CSR_REG_ADDR_WIDTH'('hF15);
 //    // Machine Trap Setup
-//    localparam MSTATUS   = CSR_REG_ADDR_WIDTH'('h300);
+    localparam MSTATUS   = CSR_REG_ADDR_WIDTH'('h300);
     localparam MISA      = CSR_REG_ADDR_WIDTH'('h301);
 //    localparam MEDELEG  = CSR_REG_ADDR_WIDTH'('h302);
 //    localparam MIDELEG  = CSR_REG_ADDR_WIDTH'('h303);
 //    localparam MIE      = CSR_REG_ADDR_WIDTH'('h304);
-//    localparam MTVEC    = CSR_REG_ADDR_WIDTH'('h305);
+    localparam MTVEC    = CSR_REG_ADDR_WIDTH'('h305);
 //    localparam MCOUNTEREN = CSR_REG_ADDR_WIDTH'('h306);
 //    localparam MSTATUSH = CSR_REG_ADDR_WIDTH'('h310);       // RV32 only
 //    localparam MEDELEGH = CSR_REG_ADDR_WIDTH'('h312);       // RV32 only
 //    // Machine Trap Handling
 //    localparam MSCRATCH = CSR_REG_ADDR_WIDTH'('h340);
-//    localparam MEPC     = CSR_REG_ADDR_WIDTH'('h341);
-//    localparam MCAUSE   = CSR_REG_ADDR_WIDTH'('h342);
-//    localparam MTVAL    = CSR_REG_ADDR_WIDTH'('h343);
+    localparam MEPC     = CSR_REG_ADDR_WIDTH'('h341);
+    localparam MCAUSE   = CSR_REG_ADDR_WIDTH'('h342);
+    localparam MTVAL    = CSR_REG_ADDR_WIDTH'('h343);
 //    localparam MIP      = CSR_REG_ADDR_WIDTH'('h344);
 //    localparam MTINST   = CSR_REG_ADDR_WIDTH'('h34A);
 //    localparam MTVAL2   = CSR_REG_ADDR_WIDTH'('h34B);
@@ -217,6 +219,34 @@ package pkg_csr;
 //    localparam DSCRATCH0 = CSR_REG_ADDR_WIDTH'('h7B2);
 //    localparam DSCRATCH1 = CSR_REG_ADDR_WIDTH'('h7B3);
 
+    typedef enum logic[XLEN-1:0] {
+        RESERVED_EXCEPTION = {1'b1, {(XLEN-1){1'b0}}},
+        SUPERVISOR_SOFTWARE_INTERRUPT = ( (XLEN'(1) << (XLEN - 1)) | 'd1 ),
+        MACHINE_SOFTWARE_INTERRUPT = ( (XLEN'(1) << (XLEN - 1)) | 'd3 ),
+        SUPERVISOR_TIMER_INTERRUPT = ( (XLEN'(1) << (XLEN - 1)) | 'd5 ),
+        MACHINE_TIMER_INTERRUPT = ( (XLEN'(1) << (XLEN - 1)) | 'd7 ),
+        SUPERVISOR_EXTERNAL_INTERRUPT = ( (XLEN'(1) << (XLEN - 1)) | 'd9 ),
+        MACHINE_EXTERNAL_INTERRUPT = ( (XLEN'(1) << (XLEN - 1)) | 'd11 ),
+        COUNTER_OVERFLOW_INTERRUPT = ( (XLEN'(1) << (XLEN - 1)) | 'd13 ),
+        INSTRUCTION_ADDRESS_MISALIGNED = 'd0,
+        INSTRUCTION_ACCESS_FAULT = 'd1,
+        ILLEGAL_INSTRUCTION = 'd2,
+        BREAKPOINT = 'd3,
+        LOAD_ADDRESS_MISALIGNED = 'd4,
+        LOAD_ACCESS_FAULT = 'd5,
+        STORE_AMO_ADDRESS_MISALIGNED = 'd6,
+        STORE_AMO_ACCESS_FAULT = 'd7,
+        ENVIRONMENT_CALL_FROM_U_MODE = 'd8,
+        ENVIRONMENT_CALL_FROM_S_MODE = 'd9,
+        ENVIRONMENT_CALL_FROM_M_MODE = 'd11,
+        INSTRUCTION_PAGE_FAULT = 'd12,
+        LOAD_PAGE_FAULT = 'd13,
+        STORE_AMO_PAGE_FAULT = 'd15,
+        DOUBLE_TRAP = 'd16,
+        SOFTWARE_CHECK = 'd18,
+        HARDWARE_CHECK = 'd19
+    //    CUSTOM_#_RV128 =     7'b11_110_1,
+    } exception_code_e;
 
 endpackage
 `endif

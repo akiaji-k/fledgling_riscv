@@ -419,6 +419,8 @@ module decoder import pkg_instructions::*;(
             ECALL_VALUE: begin
                 inst_type = I_TYPE;
                 inst = ECALL;
+                alu_type = ALU_ECALL;
+                ope_sel = OPE_NOP;
             end
             EBREAK_VALUE: begin
                 inst_type = I_TYPE;
